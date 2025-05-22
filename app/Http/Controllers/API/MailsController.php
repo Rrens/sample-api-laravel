@@ -20,12 +20,10 @@ class MailsController extends Controller
             $user = auth()->user();
 
             if (request()->has('id')) {
-                // Cek dari MySQL dulu
                 $mail = Mail::where('user_id', $user->id)
                     ->with(['receiver', 'sender'])
                     ->find(request('id'));
 
-                // Jika tidak ditemukan di MySQL, cek di PostgreSQL
                 if (!$mail) {
                     $mail = Mail::on('pgsql')->where('user_id', $user->id)
                         ->with(['receiver', 'sender'])
@@ -42,14 +40,12 @@ class MailsController extends Controller
                 );
             }
 
-            // Ambil semua dari MySQL
             $mails = Mail::where('user_id', $user->id)
                 ->with(['receiver', 'sender'])
                 ->get();
 
-            // Jika tidak ada data di MySQL, ambil dari PostgreSQL
             if ($mails->isEmpty()) {
-                $mails = Mail::on('pgsql')->where('user_id', $user->id)
+                $mails = MailPgsql::where('user_id', $user->id)
                     ->with(['receiver', 'sender'])
                     ->get();
             }
@@ -130,5 +126,50 @@ class MailsController extends Controller
         } catch (Exception $error) {
             return ResponseFormatter::error($error->getMessage(), 'Error');
         }
+    }
+
+    public function get_mails()
+    {
+        $filters = function ($query) {
+            if (request()->has('senderId')) {
+                $query->where('sender_id', request('senderId'));
+            }
+
+            if (request()->has('receiverId')) {
+                $query->where('user_id', request('receiverId'));
+            }
+
+            if (request()->has('readStatue')) {
+                $readStatus = request('readStatue') === 'true' || request('readStatue') === true ? 'read' : 'unread';
+                $query->where('is_read', $readStatus);
+            }
+
+            if (request()->has('blobIsEmpty')) {
+                if (request('blobIsEmpty') === 'true' || request('blobIsEmpty') === true) {
+                    $query->whereNull('blob_file');
+                } else {
+                    $query->whereNotNull('blob_file');
+                }
+            }
+        };
+
+        $data = Mail::with(['receiver', 'sender'])->where(function ($query) use ($filters) {
+            $filters($query);
+        })->get();
+
+        if ($data->isEmpty()) {
+            $data = MailPgsql::with(['receiver', 'sender'])->where(function ($query) use ($filters) {
+                $filters($query);
+            })->get();
+
+            return response()->json($data);
+        }
+
+        foreach ($data as $mail) {
+            unset($mail->sender_id);
+            unset($mail->user_id);
+        }
+
+        return response()->json($data);
     }
 }

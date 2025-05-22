@@ -32,21 +32,16 @@ Route::middleware('auth:sanctum')->group(function () {
         'prefix' => 'mail',
     ], function () {
         Route::get('', [MailsController::class, 'index']);
-        Route::post('sent_message/{user_id}', [MailsController::class, 'sent_message']);
+        Route::post('sent-message/{user_id}', [MailsController::class, 'sent_message']);
+        Route::get('get-mail', [MailsController::class, 'get_mails']);
     });
     // ])
 });
 
-Route::middleware('auth:sanctum')->get('/check-auth', function (Request $request) {
-    dd(auth()->user());
-});
 
 Route::group([
     'prefix' => 'auth',
 ], function () {
     Route::post('login', [AuthController::class, 'login']);
     Route::post('register', [AuthController::class, 'register']);
-    Route::get('tes', function () {
-        dd(auth()->user());
-    });
 });

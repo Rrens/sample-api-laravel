@@ -9,14 +9,10 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Support\Str;
-use Laravel\Sanctum\NewAccessToken;
 
 class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
-
-    protected $connection = 'mysql';
-    protected $table = 'users';
 
     public static function boot()
     {
@@ -28,6 +24,7 @@ class User extends Authenticatable
             }
         });
     }
+
     public function getIncrementing()
     {
         return false;
@@ -71,24 +68,5 @@ class User extends Authenticatable
     public function mail()
     {
         $this->belongsTo(Mail::class);
-    }
-
-    public static function generateTokenFor(User $user, string $name = 'authToken')
-    {
-        $tokenModel = \App\Models\PersonalAccessTokenMysql::class;
-
-        $plainText = Str::random(40);
-        $tokenId = Str::uuid()->toString();
-
-        $token = $tokenModel::create([
-            'id' => $tokenId,
-            'tokenable_type' => get_class($user),
-            'tokenable_id' => $user->getKey(),
-            'name' => $name,
-            'token' => hash('sha256', $plainText),
-            'abilities' => ['*'],
-        ]);
-
-        return new NewAccessToken($token, $plainText);
     }
 }

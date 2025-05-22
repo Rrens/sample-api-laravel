@@ -23,13 +23,13 @@ class MultiMigrateSeedCommand extends Command
             '--database' => 'mysql',
         ]);
 
-        $this->info('Migrating PostgreSQL default migrations...');
-        $this->call('migrate:fresh', [
-            '--database' => 'pgsql',
-        ]);
+        // $this->info('Migrating PostgreSQL default migrations...');
+        // $this->call('migrate:fresh', [
+        //     '--database' => 'pgsql',
+        // ]);
 
         $this->info('Migrating PostgreSQL custom migrations...');
-        $this->call('migrate', [
+        $this->call('migrate:fresh', [
             '--path' => 'database/migrations/pgsql',
             '--database' => 'pgsql',
         ]);

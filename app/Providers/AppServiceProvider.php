@@ -2,11 +2,9 @@
 
 namespace App\Providers;
 
-use App\Models\PersonalAccessTokenMysql;
 use Illuminate\Support\ServiceProvider;
 use Faker\Factory as FakerFactory;
 use Faker\Generator as FakerGenerator;
-use Laravel\Sanctum\Sanctum;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -23,8 +21,8 @@ class AppServiceProvider extends ServiceProvider
     /**
      * Bootstrap any application services.
      */
-    public function boot()
+    public function boot(): void
     {
-        Sanctum::usePersonalAccessTokenModel(PersonalAccessTokenMysql::class);
+        //
     }
 }

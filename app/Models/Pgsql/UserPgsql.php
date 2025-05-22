@@ -33,6 +33,7 @@ class UserPgsql extends Model
      * @var array<int, string>
      */
     protected $fillable = [
+        'id',
         'name',
         'email',
         'password',
@@ -72,24 +73,5 @@ class UserPgsql extends Model
     public function mail()
     {
         return $this->belongsTo(MailPgsql::class);
-    }
-
-    public static function generateTokenFor(UserPgsql $user, string $name = 'authToken')
-    {
-        $tokenModel = \App\Models\PersonalAccessTokenPgsql::class;
-
-        $plainText = Str::random(40);
-        $tokenId = Str::uuid()->toString();
-
-        $token = $tokenModel::create([
-            'id' => $tokenId,
-            'tokenable_type' => get_class($user),
-            'tokenable_id' => $user->getKey(),
-            'name' => $name,
-            'token' => hash('sha256', $plainText),
-            'abilities' => ['*'],
-        ]);
-
-        return new NewAccessToken($token, $plainText);
     }
 }

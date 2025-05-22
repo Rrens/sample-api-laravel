@@ -50,7 +50,8 @@ class AuthController extends Controller
                     401
                 );
             }
-            $token_result = User::generateTokenFor($user)->plainTextToken;
+
+            $token_result = $user->createToken('authToken')->plainTextToken;
         } catch (Exception $error) {
             return ResponseFormatter::error($error->getMessage(), 'Error');
         }
@@ -78,55 +79,21 @@ class AuthController extends Controller
                 422
             );
         }
-
-        $uuid = Str::uuid()->toString();
-
         try {
-
-            $user_mysql = User::create([
-                'id' => $uuid,
+            $user = User::create([
                 'name' => $request->name,
                 'email' => $request->email,
                 'password' => Hash::make($request->password)
             ]);
 
-            $user_pgsql = UserPgsql::create([
-                'id' => $uuid,
+            UserPgsql::create([
+                'id' => $user->id,
                 'name' => $request->name,
                 'email' => $request->email,
                 'password' => Hash::make($request->password)
             ]);
 
-            $tokenId = Str::uuid()->toString();
-            $tokenName = 'authToken';
-            $tokenPlainText = Str::random(40);
-            $tokenHashed = hash('sha256', $tokenPlainText);
-            $abilities = json_encode(['*']);
-            $now = Carbon::now();
-
-            DB::connection('mysql')->table('personal_access_tokens')->insert([
-                'id' => $tokenId,
-                'tokenable_type' => get_class($user_mysql),
-                'tokenable_id' => $user_mysql->id,
-                'name' => $tokenName,
-                'token' => $tokenHashed,
-                'abilities' => $abilities,
-                'last_used_at' => null,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]);
-
-            DB::connection('pgsql')->table('personal_access_tokens')->insert([
-                'id' => $tokenId,
-                'tokenable_type' => get_class($user_pgsql),
-                'tokenable_id' => $user_pgsql->id,
-                'name' => $tokenName,
-                'token' => $tokenHashed,
-                'abilities' => $abilities,
-                'last_used_at' => null,
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]);
+            $token_result = $user->createToken('authToken')->plainTextToken;
         } catch (Exception $error) {
             return ResponseFormatter::error(
                 [
@@ -138,66 +105,28 @@ class AuthController extends Controller
             );
         }
         return ResponseFormatter::success(
-            '',
+            $user,
             'User Created Successfully',
-            $tokenPlainText
+            $token_result
         );
     }
 
-    // public function logout(Request $request)
-    // {
-    //     $user = $request->user();
-
-    //     if ($user && $user->currentAccessToken()) {
-    //         $user->currentAccessToken()->delete();
-
-    //         return ResponseFormatter::success(
-    //             null,
-    //             'Logout Successfully'
-    //         );
-    //     }
-
-    //     return ResponseFormatter::success(
-    //         null,
-    //         'Token Not Found, or Already Logout'
-    //     );
-    // }
-
     public function logout(Request $request)
     {
-        try {
-            $user = $request->user();
+        $user = $request->user();
 
-            if ($user && $user->currentAccessToken()) {
-                $user->currentAccessToken()->delete();
-
-                return ResponseFormatter::success(
-                    null,
-                    'Logout Successfully'
-                );
-            }
-
-            // Coba ambil token manual dari tabel `personal_access_tokens`
-            $token = $request->bearerToken();
-            if ($token) {
-                $accessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
-
-                if ($accessToken) {
-                    $accessToken->delete();
-
-                    return ResponseFormatter::success(
-                        null,
-                        'Logout Successfully (token manually deleted)'
-                    );
-                }
-            }
+        if ($user && $user->currentAccessToken()) {
+            $user->currentAccessToken()->delete();
 
             return ResponseFormatter::success(
                 null,
-                'Token Not Found or Already Logout'
+                'Logout Successfully'
             );
-        } catch (Exception $error) {
-            return ResponseFormatter::error($error->getMessage(), 'Logout Error');
         }
+
+        return ResponseFormatter::success(
+            null,
+            'Token Not Found, or Already Logout'
+        );
     }
 }
