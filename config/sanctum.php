@@ -74,6 +74,9 @@ return [
     |
     */
 
+    // 'personal_access_token_model' => App\Models\PersonalAccessTokenMysql::class,
+
+
     'middleware' => [
         'authenticate_session' => Laravel\Sanctum\Http\Middleware\AuthenticateSession::class,
         'encrypt_cookies' => App\Http\Middleware\EncryptCookies::class,

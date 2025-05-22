@@ -26,6 +26,7 @@ return new class extends Migration
             $table->enum('is_read', ['read', 'unread']);
             $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
             $table->foreign('sender_id')->references('id')->on('users')->onDelete('cascade');
+            $table->timestamp('recheivedAt')->nullable();
             $table->softDeletes();
             $table->timestamps();
         });

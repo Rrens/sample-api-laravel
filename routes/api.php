@@ -16,9 +16,9 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::middleware('auth:sanctum')->get('', function (Request $request) {
-    return $request->user();
-});
+// Route::middleware('auth:sanctum')->get('', function (Request $request) {
+//     return $request->user();
+// });
 
 Route::middleware('auth:sanctum')->group(function () {
 
@@ -37,9 +37,16 @@ Route::middleware('auth:sanctum')->group(function () {
     // ])
 });
 
+Route::middleware('auth:sanctum')->get('/check-auth', function (Request $request) {
+    dd(auth()->user());
+});
+
 Route::group([
     'prefix' => 'auth',
 ], function () {
     Route::post('login', [AuthController::class, 'login']);
     Route::post('register', [AuthController::class, 'register']);
+    Route::get('tes', function () {
+        dd(auth()->user());
+    });
 });

@@ -1,33 +1,23 @@
 <?php
 
-namespace App\Models;
+namespace App\Models\Pgsql;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Models\PersonalAccessTokenPgsql;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\NewAccessToken;
 
-class User extends Authenticatable
+class UserPgsql extends Model
 {
     use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
-    protected $connection = 'mysql';
+    protected $connection = 'pgsql';
     protected $table = 'users';
 
-    public static function boot()
-    {
-        parent::boot();
-
-        static::creating(function ($model) {
-            if (!$model->getKey()) {
-                $model->{$model->getKeyName()} = (string) Str::uuid();
-            }
-        });
-    }
     public function getIncrementing()
     {
         return false;
@@ -68,14 +58,25 @@ class User extends Authenticatable
         'password' => 'hashed',
     ];
 
-    public function mail()
+    public static function boot()
     {
-        $this->belongsTo(Mail::class);
+        parent::boot();
+
+        static::creating(function ($model) {
+            if (!$model->getKey()) {
+                $model->{$model->getKeyName()} = (string) Str::uuid();
+            }
+        });
     }
 
-    public static function generateTokenFor(User $user, string $name = 'authToken')
+    public function mail()
     {
-        $tokenModel = \App\Models\PersonalAccessTokenMysql::class;
+        return $this->belongsTo(MailPgsql::class);
+    }
+
+    public static function generateTokenFor(UserPgsql $user, string $name = 'authToken')
+    {
+        $tokenModel = \App\Models\PersonalAccessTokenPgsql::class;
 
         $plainText = Str::random(40);
         $tokenId = Str::uuid()->toString();

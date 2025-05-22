@@ -4,11 +4,15 @@ namespace App\Http\Controllers\API;
 
 use App\Helpers\ResponseFormatter;
 use App\Http\Controllers\Controller;
+use App\Models\Pgsql\UserPgsql;
 use App\Models\User;
+use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
@@ -33,6 +37,10 @@ class AuthController extends Controller
 
         try {
             $user = User::where('email', $request->email)->first();
+
+            if (!$user) {
+                $user = UserPgsql::where('email', $request->email)->first();
+            }
             if (!Hash::check($request->password, $user->password, [])) {
                 return ResponseFormatter::error(
                     [
@@ -42,8 +50,7 @@ class AuthController extends Controller
                     401
                 );
             }
-
-            $token_result = $user->createToken('authToken')->plainTextToken;
+            $token_result = User::generateTokenFor($user)->plainTextToken;
         } catch (Exception $error) {
             return ResponseFormatter::error($error->getMessage(), 'Error');
         }
@@ -71,14 +78,55 @@ class AuthController extends Controller
                 422
             );
         }
+
+        $uuid = Str::uuid()->toString();
+
         try {
-            $user = User::create([
+
+            $user_mysql = User::create([
+                'id' => $uuid,
                 'name' => $request->name,
                 'email' => $request->email,
                 'password' => Hash::make($request->password)
             ]);
 
-            $token_result = $user->createToken('authToken')->plainTextToken;
+            $user_pgsql = UserPgsql::create([
+                'id' => $uuid,
+                'name' => $request->name,
+                'email' => $request->email,
+                'password' => Hash::make($request->password)
+            ]);
+
+            $tokenId = Str::uuid()->toString();
+            $tokenName = 'authToken';
+            $tokenPlainText = Str::random(40);
+            $tokenHashed = hash('sha256', $tokenPlainText);
+            $abilities = json_encode(['*']);
+            $now = Carbon::now();
+
+            DB::connection('mysql')->table('personal_access_tokens')->insert([
+                'id' => $tokenId,
+                'tokenable_type' => get_class($user_mysql),
+                'tokenable_id' => $user_mysql->id,
+                'name' => $tokenName,
+                'token' => $tokenHashed,
+                'abilities' => $abilities,
+                'last_used_at' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+            DB::connection('pgsql')->table('personal_access_tokens')->insert([
+                'id' => $tokenId,
+                'tokenable_type' => get_class($user_pgsql),
+                'tokenable_id' => $user_pgsql->id,
+                'name' => $tokenName,
+                'token' => $tokenHashed,
+                'abilities' => $abilities,
+                'last_used_at' => null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
         } catch (Exception $error) {
             return ResponseFormatter::error(
                 [
@@ -90,28 +138,66 @@ class AuthController extends Controller
             );
         }
         return ResponseFormatter::success(
-            $user,
+            '',
             'User Created Successfully',
-            $token_result
+            $tokenPlainText
         );
     }
 
+    // public function logout(Request $request)
+    // {
+    //     $user = $request->user();
+
+    //     if ($user && $user->currentAccessToken()) {
+    //         $user->currentAccessToken()->delete();
+
+    //         return ResponseFormatter::success(
+    //             null,
+    //             'Logout Successfully'
+    //         );
+    //     }
+
+    //     return ResponseFormatter::success(
+    //         null,
+    //         'Token Not Found, or Already Logout'
+    //     );
+    // }
+
     public function logout(Request $request)
     {
-        $user = $request->user();
+        try {
+            $user = $request->user();
 
-        if ($user && $user->currentAccessToken()) {
-            $user->currentAccessToken()->delete();
+            if ($user && $user->currentAccessToken()) {
+                $user->currentAccessToken()->delete();
+
+                return ResponseFormatter::success(
+                    null,
+                    'Logout Successfully'
+                );
+            }
+
+            // Coba ambil token manual dari tabel `personal_access_tokens`
+            $token = $request->bearerToken();
+            if ($token) {
+                $accessToken = \Laravel\Sanctum\PersonalAccessToken::findToken($token);
+
+                if ($accessToken) {
+                    $accessToken->delete();
+
+                    return ResponseFormatter::success(
+                        null,
+                        'Logout Successfully (token manually deleted)'
+                    );
+                }
+            }
 
             return ResponseFormatter::success(
                 null,
-                'Logout Successfully'
+                'Token Not Found or Already Logout'
             );
+        } catch (Exception $error) {
+            return ResponseFormatter::error($error->getMessage(), 'Logout Error');
         }
-
-        return ResponseFormatter::success(
-            null,
-            'Token Not Found, or Already Logout'
-        );
     }
 }

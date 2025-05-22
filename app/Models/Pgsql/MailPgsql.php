@@ -1,20 +1,20 @@
 <?php
 
-namespace App\Models;
+namespace App\Models\Pgsql;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
-class Mail extends Model
+class MailPgsql extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected $connection = 'pgsql';
+    protected $table = 'mails';
     protected $keyType = 'string';
     public $incrementing = false;
-    protected $connection = 'mysql';
-    protected $table = 'mails';
 
     protected $fillable = [
         'id',
@@ -52,14 +52,13 @@ class Mail extends Model
             }
         });
     }
-
     public function receiver()
     {
-        return $this->belongsTo(User::class, 'user_id', 'id');
+        return $this->belongsTo(UserPgsql::class, 'user_id', 'id');
     }
 
     public function sender()
     {
-        return $this->belongsTo(User::class, 'sender_id', 'id');
+        return $this->belongsTo(UserPgsql::class, 'sender_id', 'id');
     }
 }

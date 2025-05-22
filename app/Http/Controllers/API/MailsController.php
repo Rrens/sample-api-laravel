@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use App\Helpers\ResponseFormatter;
 use App\Http\Controllers\Controller;
 use App\Models\Mail;
+use App\Models\Pgsql\MailPgsql;
 use App\Models\Utils\StoragePath;
 use Exception;
 use Illuminate\Http\Request;
@@ -17,10 +18,23 @@ class MailsController extends Controller
     {
         try {
             $user = auth()->user();
+
             if (request()->has('id')) {
+                // Cek dari MySQL dulu
                 $mail = Mail::where('user_id', $user->id)
                     ->with(['receiver', 'sender'])
                     ->find(request('id'));
+
+                // Jika tidak ditemukan di MySQL, cek di PostgreSQL
+                if (!$mail) {
+                    $mail = Mail::on('pgsql')->where('user_id', $user->id)
+                        ->with(['receiver', 'sender'])
+                        ->find(request('id'));
+                }
+
+                if ($mail && $mail->file_url != null) {
+                    $mail->file_url = StoragePath::getStoragePath($mail->file_url);
+                }
 
                 return ResponseFormatter::success(
                     $mail,
@@ -28,9 +42,17 @@ class MailsController extends Controller
                 );
             }
 
+            // Ambil semua dari MySQL
             $mails = Mail::where('user_id', $user->id)
                 ->with(['receiver', 'sender'])
                 ->get();
+
+            // Jika tidak ada data di MySQL, ambil dari PostgreSQL
+            if ($mails->isEmpty()) {
+                $mails = Mail::on('pgsql')->where('user_id', $user->id)
+                    ->with(['receiver', 'sender'])
+                    ->get();
+            }
 
             foreach ($mails as $mail) {
                 if ($mail->file_url != null) {
@@ -48,6 +70,7 @@ class MailsController extends Controller
             return ResponseFormatter::error($error->getMessage(), 'Error retrieving mail data');
         }
     }
+
 
     public function sent_message($user_id, Request $request)
     {
@@ -74,31 +97,35 @@ class MailsController extends Controller
         }
 
         try {
-            $data = new Mail();
-            $data->id = Str::uuid();
-            $data->user_id = auth()->user()->id;
-            $data->sender_id = $user_id;
-            $data->subject = $request->subject;
-            $data->body = $request->body;
-            // $data->file_url = null;
+            $data = [
+                'id' => Str::uuid(),
+                'user_id' => auth()->user()->id,
+                'sender_id' => $user_id,
+                'subject' => $request->subject,
+                'body' => $request->body,
+                'mail_type' => $request->mail_type,
+                'is_read' => 'unread',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+
             if ($request->file('file')) {
                 $file = $request->file('file');
-                $path = $file->store('uploads', 'public');
                 $fileContents = file_get_contents($file->getRealPath());
                 $base64 = base64_encode($fileContents);
 
-                $data->blob_file = $base64;
-                $data->file_extention = $file->getClientOriginalExtension();
-                $data->mime_type = $file->getMimeType();
-                $data->original_name = $file->getClientOriginalName();
+                $data['blob_file'] = $base64;
+                $data['file_extention'] = $file->getClientOriginalExtension();
+                $data['mime_type'] = $file->getMimeType();
+                $data['original_name'] = $file->getClientOriginalName();
             }
-            $data->mail_type = $request->mail_type;
-            $data->is_read = 'unread';
-            $data->save();
 
+            Mail::create($data);
+
+            MailPgsql::create($data);
 
             return ResponseFormatter::success(
-                'Sent Message Successfully',
+                'Sent Message Successfully'
             );
         } catch (Exception $error) {
             return ResponseFormatter::error($error->getMessage(), 'Error');
