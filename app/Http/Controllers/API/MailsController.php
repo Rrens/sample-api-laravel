@@ -162,7 +162,7 @@ class MailsController extends Controller
                 $filters($query);
             })->get();
 
-            return response()->json($data);
+            return ResponseFormatter::success($data);
         }
 
         foreach ($data as $mail) {
@@ -170,6 +170,6 @@ class MailsController extends Controller
             unset($mail->user_id);
         }
 
-        return response()->json($data);
+        return ResponseFormatter::success($data);
     }
 }

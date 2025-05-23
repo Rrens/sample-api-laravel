@@ -105,7 +105,7 @@ class AuthController extends Controller
             );
         }
         return ResponseFormatter::success(
-            $user,
+            null,
             'User Created Successfully',
             $token_result
         );
